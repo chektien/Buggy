@@ -9,9 +9,7 @@ import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.PerspectiveCamera;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.VertexAttributes;
-import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
-import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
 import com.badlogic.gdx.graphics.g3d.Environment;
 import com.badlogic.gdx.graphics.g3d.Material;
 import com.badlogic.gdx.graphics.g3d.Model;
@@ -21,6 +19,7 @@ import com.badlogic.gdx.graphics.g3d.Renderable;
 import com.badlogic.gdx.graphics.g3d.Shader;
 import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute;
 import com.badlogic.gdx.graphics.g3d.environment.DirectionalLight;
+import com.badlogic.gdx.graphics.g3d.environment.PointLight;
 import com.badlogic.gdx.graphics.g3d.model.NodePart;
 import com.badlogic.gdx.graphics.g3d.shaders.DefaultShader;
 import com.badlogic.gdx.graphics.g3d.utils.DefaultShaderProvider;
@@ -30,10 +29,6 @@ import com.badlogic.gdx.graphics.g3d.utils.RenderContext;
 import com.badlogic.gdx.graphics.glutils.ShaderProgram;
 import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.math.Vector3;
-import com.badlogic.gdx.scenes.scene2d.Stage;
-import com.badlogic.gdx.scenes.scene2d.ui.Label;
-import com.badlogic.gdx.scenes.scene2d.ui.Table;
-import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.GdxRuntimeException;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
@@ -68,21 +63,29 @@ public class Game extends ApplicationAdapter {
 	private SpriteBatch spriteBatch;
     private ModelBatch modelBatch;
     private Environment env;
-    private Model model;
+    private com.boliao.buggy.Cube cube;
     private Texture img;
 
     private ShaderProgram shaderProg;
     private Shader shader;
     private Renderable renderable;
-    private RenderContext renderContext;
 
     private Viewport viewport;
     private PerspectiveCamera cam;
-    private ModelInstance cube;
 
     private Hud hud;
 
-	@Override
+    // temp vars for processing
+    private Matrix4 mat = new Matrix4();
+    private Matrix4 rotation = new Matrix4();
+    private Matrix4 translation = new Matrix4();
+    private Matrix4 scaling = new Matrix4();
+    private Matrix4 world2Model = new Matrix4();
+    private Vector3 rotAxis = new Vector3();
+    private Vector3 rotAxisX = new Vector3(Vector3.X);
+    private Vector3 rotAxisY = new Vector3(Vector3.Y);
+
+    @Override
 	public void create () {
         createCam();
         createViewport();
@@ -91,60 +94,27 @@ public class Game extends ApplicationAdapter {
         createShader();
 
         hud = new Hud();
-
-//        modelBatch = new ModelBatch(new DefaultShaderProvider() {
-//            @Override
-//            protected Shader createShader(Renderable renderable) {
-//                return super.createShader(renderable);
-//            }
-//        });
-
-        modelBatch = new ModelBatch(new DefaultShaderProvider(Gdx.files.internal("shaders/pixel_vert.glsl"), Gdx.files.internal("shaders/pixel_frag.glsl")));
-
-	}
+    }
 
 
     private void createCube() {
-        ModelBuilder modelBuilder = new ModelBuilder();
-        model = modelBuilder.createBox(3f, 3f, 3f, new Material(ColorAttribute.createDiffuse(Color.RED)), VertexAttributes.Usage.Position | VertexAttributes.Usage.Normal);
-        cube = new ModelInstance(model);
-        //cube.transform.rotate(Vector3.X, 45);
-        //cube.transform.rotate(Vector3.Y, 45);
-
-        // create renderable to apply shader to nodepart(s) later
-        renderable = new Renderable();
-        NodePart nodePart = model.nodes.get(0).parts.get(0);
-        nodePart.setRenderable(renderable);
-        renderable.environment = null;
-        renderable.worldTransform.idt();
+        if (SETTINGS.IS_TEXTURED) {
+            cube = new TexturedCube(cam, "textures/crate.png");
+        }
+        else {
+            cube = new com.boliao.buggy.Cube(cam);
+        }
     }
 
     private void createShader() {
-        // compile the glsl shader program
-        ShaderProgram.pedantic = false;
-        shaderProg = new ShaderProgram(Gdx.files.internal("shaders/pixel_vert.glsl"), Gdx.files.internal("shaders/pixel_frag.glsl"));
-        if (!shaderProg.isCompiled()) {
-            throw new GdxRuntimeException("Shader cannot compile" + shaderProg.getLog());
-        }
-        else {
-            String log = shaderProg.getLog();
-            if (log.length() > 0) {
-                Gdx.app.error(TAG, "Shader compilation log:" + log);
-            }
-        }
 
-        // create render context for shader (tracks opengl state to facilitate shader switching)
-        renderContext = new RenderContext(new DefaultTextureBinder(DefaultTextureBinder.WEIGHTED, 1));
-
-        // create the shader for the renderable
-        shader = new DefaultShader(renderable, new DefaultShader.Config(Gdx.files.internal("shaders/pixel_vert.glsl").readString(), Gdx.files.internal("shaders/pixel_frag.glsl").readString()));
-        shader.init();
     }
 
     private void createEnvironment() {
         env = new Environment();
         env.set(new ColorAttribute(ColorAttribute.AmbientLight, 0.5f, 0.5f, 0.5f, 1f));
-        env.add(new DirectionalLight().set(0.9f, 0.9f, 0.9f, -1f, -1f, -0.2f));
+        //env.add(new DirectionalLight().set(0.9f, 0.9f, 0.9f, 2f, 2f, -3f));
+        env.add(new PointLight().set(0.9f, 0.9f, 0.9f, 2f, 2f, 3f, 10f));
     }
 
     private void createCam() {
@@ -177,20 +147,35 @@ public class Game extends ApplicationAdapter {
         // object transformations
         // - note that we are moving the object in it's LOCAL axes
         if (Gdx.input.isTouched()) {
+            // get world to model space transform
+            world2Model.set(cube.transform).inv();
+
+            // reset all matrices
+            translation.idt();
+            rotation.idt();
+            scaling.idt();
+
+            // do translation
             if (hud.isTranslate()) {
                 /**
                  * 1. Let's do it the hard way here: manual matrix multiplication
                  */
+
+                // get translation matrix
                 float x = Gdx.input.getDeltaX() * SPEED * deltaTime;
                 float y = -Gdx.input.getDeltaY() * SPEED * deltaTime;
                 float z = 0;
-                Matrix4 mat = new Matrix4(new float[] {
+
+                // get axes components in model space
+                //axis.set(x, y, z).mul(world2Model);
+
+                translation.set(new float[] {
                         1, 0, 0, x,
                         0, 1, 0, y,
                         0, 0, 1, z,
                         0, 0, 0, 1
                 });
-                cube.transform.mul(mat.tra());
+                translation.tra(); // libgdx stores matrices in col major
 
                 /**
                  * 2. And now the easy way
@@ -205,25 +190,36 @@ public class Game extends ApplicationAdapter {
             }
 
             /**
-             * 3. And we'll take it easy here on...
+             * 3. And we'll take it "easy" here on...
              */
-
             // rotations are done using quaternions
             if (hud.isRotate()) {
-                cube.transform.rotate(Vector3.X, Gdx.input.getDeltaY() * ROTATE_SPEED * deltaTime);
-                cube.transform.rotate(Vector3.Y, Gdx.input.getDeltaX() * ROTATE_SPEED * deltaTime);
+                // get rotation around world x-axis
+                rotAxis.set(rotAxisX).mul(world2Model);
+                rotation.setToRotation(rotAxis, Gdx.input.getDeltaY() * ROTATE_SPEED * deltaTime);
+
+                // get rotation around world y-axis
+                rotAxis.set(rotAxisY).mul(world2Model);
+                mat.setToRotation(rotAxis, Gdx.input.getDeltaX() * ROTATE_SPEED * deltaTime);
+
+                // multiply the matrices
+                rotation.mul(mat);
             }
 
-            // scaling is always a [0..1] factor value
+            // scale along local x-y
             if (hud.isScale()) {
-                cube.transform.scale(
+                // get scaling matrix
+                // - scaling is always a [0..1] factor value
+                scaling.setToScaling(
                         1 + Gdx.input.getDeltaX() * SCALE_SPEED * deltaTime,
                         1 - Gdx.input.getDeltaY() * SCALE_SPEED * deltaTime,
                         1
                 );
-
-                Gdx.app.log(TAG, "scaleX = " + cube.transform.getScaleX() + " scaleY = " + cube.transform.getScaleY());
             }
+
+            // multiply all the matrices
+            cube.transform.mul(translation).mul(rotation).mul(scaling);
+            //Gdx.app.log(TAG, "translation=\n" + translation + "rotation=\n" + rotation + "scaling=\n" + scaling);
         }
 
     }
@@ -236,26 +232,19 @@ public class Game extends ApplicationAdapter {
 
 		Gdx.gl.glClearColor(0, 0, 0, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT | GL20.GL_DEPTH_BUFFER_BIT);
-
-        modelBatch.begin(cam);
-        modelBatch.render(cube, env);
-        modelBatch.end();
-
-//        renderContext.begin();
-//        shader.begin(cam, renderContext);
-//        shader.render(renderable);
-//        shader.end();
-//        renderContext.end();
-
+        Gdx.gl.glEnable(GL20.GL_DEPTH_TEST);
+        Gdx.gl.glEnable(GL20.GL_TEXTURE_2D);
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        cube.draw();
         hud.draw();
 	}
 	
 	@Override
 	public void dispose () {
-        shader.dispose();
         spriteBatch.dispose();
         modelBatch.dispose();
-        model.dispose();
+        cube.dispose();
 		img.dispose();
 	}
 

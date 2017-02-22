@@ -43,7 +43,7 @@ public class Hud {
         table.setFillParent(true);
 
         // create text to display on screen
-        FreeTypeFontGenerator fontGenerator = new FreeTypeFontGenerator(Gdx.files.internal("pixel.ttf"));
+        FreeTypeFontGenerator fontGenerator = new FreeTypeFontGenerator(Gdx.files.internal("fonts/pixel.ttf"));
         FreeTypeFontGenerator.FreeTypeFontParameter fontParams = new FreeTypeFontGenerator.FreeTypeFontParameter();
         fontParams.size = 70;
         fontParams.color = Color.WHITE;
