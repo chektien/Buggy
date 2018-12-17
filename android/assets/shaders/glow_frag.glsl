@@ -11,6 +11,11 @@ uniform sampler2D u_texture;
 uniform int u_hasTexture;
 uniform float u_time;
 
+/*
+ * Graphics: shaders
+ * 2. plasma-ish effect using sinusoidal addition
+ * - http://www.bidouille.org/prog/plasma
+ */
 void main() {
     vec2 u_k = vec2(8, 8);
     float v = 0.0;
@@ -29,5 +34,6 @@ void main() {
         texColor = v_color;
     }
 
+    // blend the funky color and the texture's color
     gl_FragColor = funkyColor*0.65 + texColor*0.35;
 }

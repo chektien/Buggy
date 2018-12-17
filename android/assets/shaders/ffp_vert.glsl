@@ -1,4 +1,9 @@
-// fixed attributes from renderable
+/*
+ * Graphics: shaders
+ * 1. Shader program structure overview.
+ */
+
+// fixed standard data from renderable
 attribute vec4 a_position;
 attribute vec4 a_color;
 attribute vec2 a_texCoord0;
@@ -13,9 +18,10 @@ varying vec2 v_texCoords;
 
 // this is called for each vertex
 void main() {
+    // relay data to the fragment shader
     v_color = a_color;
     v_texCoords = a_texCoord0;
 
-    // this will be the position fed into the interpolator
+    // this will be the position fed into the interpolator in the pipeline
     gl_Position = u_projViewTrans * u_worldTrans * a_position;
 }

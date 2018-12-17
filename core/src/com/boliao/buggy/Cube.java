@@ -27,6 +27,11 @@ public class Cube {
 
     public Cube() {}
 
+    /**
+     * Graphics: shaders
+     * 1. Program overview.
+     * @param cam
+     */
     public Cube (Camera cam) {
         this.cam = cam;
 
@@ -52,6 +57,13 @@ public class Cube {
         createIndices();
     }
 
+    /**
+     * Graphics: shaders
+     * 2. Define vertices for each corner.
+     * - position, color
+     * - draw cube
+     * - mostly, you will use drawing libraries (libgdx)
+     */
     protected void createVertices() {
         float x, y, z, r, g, b, a;
         x = y = z = SETTINGS.SIZE;
@@ -69,6 +81,10 @@ public class Cube {
         });
     }
 
+    /**
+     * Graphics: shaders
+     * 3. Link up the vertices.
+     */
     protected void createIndices() {
         mesh.setIndices(new short[] {
                 // front
@@ -97,6 +113,12 @@ public class Cube {
         });
     }
 
+    /**
+     * Graphics: shaders
+     * 4. Compile the shader files.
+     * - in GLSL language.
+     * - other shading languages are like HLSL, Cg, etc...
+     */
     protected void createShader() {
         shaderProgram = new ShaderProgram(
                 Gdx.files.internal(SETTINGS.VERT_SHADER_PATH),
@@ -113,6 +135,11 @@ public class Cube {
         }
     }
 
+    /**
+     * Graphics: shaders
+     * 5. Draw using the shader.
+     * - send info to the shader before drawing
+     */
     public void draw () {
         shaderProgram.begin();
 
